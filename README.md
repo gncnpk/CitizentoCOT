@@ -15,7 +15,7 @@
 Run `python -m pipenv run python main.py` to start the application.
 
 ### Example Config
-This config connects to a TAK server instance via TLS and pushes CoT events every 30 minutes.
+This config connects to a TAK server instance via TLS (using a self-signed cert), pulls data and pushes CoT events every 30 minutes.
 
 `config.ini`
 ```ini
