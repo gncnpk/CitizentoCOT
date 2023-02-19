@@ -11,7 +11,20 @@ from configparser import ConfigParser
 
 import pytak
 import json
-
+icon_table = {
+    "Traffic Related": "cabs.png",
+    "Fire": "firedept.png",
+    "Wildfire": "firedept.png",
+    "Assault / Fight": "earthquake.png",
+    "Police Related": "police.png",
+    "Hazardous Condition": "caution.png",
+    "Gun Related": "mechanic.png",
+    "Robbery / Theft ": "dollar.png",
+    "Weapon": "mechanic.png",
+    "Fire / EMS Activity": "hospitals.png",
+    "Break In": "dollar.png",
+    "Pursuit / Search": "police.png"
+}
 class MySerializer(pytak.QueueWorker):
     """
     Defines how you process or generate your Cursor-On-Target Events.
@@ -44,23 +57,28 @@ class MySerializer(pytak.QueueWorker):
                     updates.append(f"{update_timestamp} - {i['updates'][i2]['text']}")
                 incident_seconds = i['ts'] / 1000
                 incident_datetime = datetime.fromtimestamp(incident_seconds)
+                try:
+                    icon = icon_table.get(i['categories'][0], "info_circle.png")
+                except:
+                    icon = "info_circle.png"
                 if incident_datetime.date() == today:
                     activityReports.append({
                         "name": i['title'],
                         "latitude": i['latitude'],
                         "longitude": i['longitude'],
                         "uuid": i['key'],
-                        "updates": updates
+                        "updates": updates,
+                        "icon": icon
                     })
             for i in activityReports:
-                item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], poll_interval)
+                item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], i['icon'], poll_interval)
                 await self.handle_data(item)
                 await asyncio.sleep(0.1)
             print(f"Added {len(activityReports)} activity reports! Checking in {int(poll_interval) // 60} minutes...")
             await asyncio.sleep(int(poll_interval))
 
 
-def tak_activityReport(lat, lon, uuid, name, updates, poll_interval):
+def tak_activityReport(lat, lon, uuid, name, updates, icon, poll_interval):
     event_uuid = uuid
     root = ET.Element("event")
     root.set("version", "2.0")
@@ -88,7 +106,7 @@ def tak_activityReport(lat, lon, uuid, name, updates, poll_interval):
     color = ET.SubElement(detail, 'color')
     color.set('argb', '-1')
     usericon = ET.SubElement(detail, 'usericon')
-    usericon.set('iconsetpath','6d781afb-89a6-4c07-b2b9-a89748b6a38f/Misc/danger.png')
+    usericon.set('iconsetpath',f'f7f71666-8b28-4b57-9fbb-e38e61d33b79/Google/{icon}')
     return ET.tostring(root)
 
 async def main():
