@@ -64,11 +64,11 @@ class MySerializer(pytak.QueueWorker):
                 for i2 in i['updates']:
                     update_seconds = i['updates'][i2]['ts'] / 1000
                     update_datetime = datetime.fromtimestamp(update_seconds)
-                    if platform.contains("linux"):
+                    if "linux" in platform:
                         update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
-                    elif platform.contains("darwin"):
+                    elif "darwin" in platform:
                         update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
-                    elif platform.contains("win32"):
+                    elif "win32" in platform:
                         update_timestamp = datetime.strftime(update_datetime, '%#I:%M %p')
                     else:
                         print("Unknown OS! Please create a issue on GitHub.")
@@ -91,7 +91,6 @@ class MySerializer(pytak.QueueWorker):
                     })
             for i in activityReports:
                 item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], i['color'], poll_interval)
-                print(item)
                 await self.handle_data(item)
                 await asyncio.sleep(0.1)
             print(f"Added {len(activityReports)} activity reports! Checking in {int(poll_interval) // 60} minutes...")
