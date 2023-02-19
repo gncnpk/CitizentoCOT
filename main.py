@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import uuid
 import time
 import requests
+import logging
 from datetime import datetime, date
 
 from configparser import ConfigParser
@@ -53,6 +54,13 @@ class MySerializer(pytak.QueueWorker):
         """
         Runs the loop for processing or generating pre-COT data.
         """
+        logger = logging.getLogger('citizentocot')
+        logger.setLevel("INFO")
+        ch = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        ch.setLevel(logging.DEBUG)
+        logger.addHandler(ch)
         while True:
             activityReports = []
             url = self.config.get('CITIZEN_API_URL')
@@ -93,7 +101,7 @@ class MySerializer(pytak.QueueWorker):
                 item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], i['color'], poll_interval)
                 await self.handle_data(item)
                 await asyncio.sleep(0.1)
-            print(f"Added {len(activityReports)} activity reports! Checking in {int(poll_interval) // 60} minutes...")
+            logger.info(f"Added {len(activityReports)} activity reports! Checking in {int(poll_interval) // 60} minutes...")
             await asyncio.sleep(int(poll_interval))
 
 
