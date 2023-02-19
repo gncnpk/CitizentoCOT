@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import uuid
 import time
 import requests
+from datetime import datetime, date
 
 from configparser import ConfigParser
 
@@ -33,22 +34,33 @@ class MySerializer(pytak.QueueWorker):
             url = self.config.get('CITIZEN_API_URL')
             poll_interval: int = self.config.get('POLL_INTERVAL')
             r = requests.get(url)
+            today = date.today()
             for i in r.json()['results']:
-                activityReports.append({
-                    "remarks": i['title'],
-                    "latitude": i['latitude'],
-                    "longitude": i['longitude'],
-                    "uuid": i['key']
-                })
+                updates = []
+                for i2 in i['updates']:
+                    update_seconds = i['updates'][i2]['ts'] / 1000
+                    update_datetime = datetime.fromtimestamp(update_seconds)
+                    update_timestamp = datetime.strftime(update_datetime, '%#I:%M %p')
+                    updates.append(f"{update_timestamp} - {i['updates'][i2]['text']}")
+                incident_seconds = i['ts'] / 1000
+                incident_datetime = datetime.fromtimestamp(incident_seconds)
+                if incident_datetime.date() == today:
+                    activityReports.append({
+                        "name": i['title'],
+                        "latitude": i['latitude'],
+                        "longitude": i['longitude'],
+                        "uuid": i['key'],
+                        "updates": updates
+                    })
             for i in activityReports:
-                item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['remarks'], poll_interval)
+                item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], poll_interval)
                 await self.handle_data(item)
                 await asyncio.sleep(0.1)
             print(f"Added {len(activityReports)} activity reports! Checking in {int(poll_interval) // 60} minutes...")
             await asyncio.sleep(int(poll_interval))
 
 
-def tak_activityReport(lat, lon, uuid, description, poll_interval):
+def tak_activityReport(lat, lon, uuid, name, updates, poll_interval):
     event_uuid = uuid
     root = ET.Element("event")
     root.set("version", "2.0")
@@ -70,9 +82,9 @@ def tak_activityReport(lat, lon, uuid, description, poll_interval):
     precisionlocation = ET.SubElement(detail, "precisionlocation")
     precisionlocation.set("altsrc", "DTED0")
     remarks = ET.SubElement(detail, 'remarks')
-    remarks.text = description
+    remarks.text = '\n'.join(updates)
     contact = ET.SubElement(detail, "contact")
-    contact.set("callsign", "Activity Report")
+    contact.set("callsign", name)
     color = ET.SubElement(detail, 'color')
     color.set('argb', '-1')
     usericon = ET.SubElement(detail, 'usericon')
