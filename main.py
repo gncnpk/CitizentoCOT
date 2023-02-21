@@ -21,7 +21,8 @@ color_table = {
     "brown": "-7650029",
     "blue": "-16776961",
     "green": "-16711936",
-    "white": "-1"
+    "white": "-1",
+    "pink": "-65281"
 }
 cata_table = {
     "Traffic Related": "cyan",
@@ -35,7 +36,9 @@ cata_table = {
     "Weapon": "brown",
     "Fire / EMS Activity": "red",
     "Break In": "green",
-    "Pursuit / Search": "blue"
+    "Pursuit / Search": "blue",
+    "Rescue": "red",
+    "Harassment": "pink"
 }
 class MySerializer(pytak.QueueWorker):
     """
@@ -55,11 +58,11 @@ class MySerializer(pytak.QueueWorker):
         Runs the loop for processing or generating pre-COT data.
         """
         logger = logging.getLogger('citizentocot')
-        logger.setLevel("INFO")
+        logger.setLevel(logging.INFO)
         ch = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s - %(message)s')
         ch.setFormatter(formatter)
-        ch.setLevel(logging.DEBUG)
+        ch.setLevel(logging.INFO)
         logger.addHandler(ch)
         while True:
             activityReports = []
@@ -68,27 +71,31 @@ class MySerializer(pytak.QueueWorker):
             r = requests.get(url)
             today = date.today()
             for i in r.json()['results']:
-                updates = []
-                for i2 in i['updates']:
-                    update_seconds = i['updates'][i2]['ts'] / 1000
-                    update_datetime = datetime.fromtimestamp(update_seconds)
-                    if "linux" in platform:
-                        update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
-                    elif "darwin" in platform:
-                        update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
-                    elif "win32" in platform:
-                        update_timestamp = datetime.strftime(update_datetime, '%#I:%M %p')
-                    else:
-                        print("Unknown OS! Please create a issue on GitHub.")
-                        continue
-                    updates.append(f"{update_timestamp} - {i['updates'][i2]['text']}")
                 incident_seconds = i['ts'] / 1000
                 incident_datetime = datetime.fromtimestamp(incident_seconds)
-                try:
-                    color = color_table.get(cata_table.get(i['categories'][0]))
-                except:
-                    color = color_table.get("white")
                 if incident_datetime.date() == today:
+                    updates = []
+                    for i2 in i['updates']:
+                        update_seconds = i['updates'][i2]['ts'] / 1000
+                        update_datetime = datetime.fromtimestamp(update_seconds)
+                        if "linux" in platform:
+                            update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
+                        elif "darwin" in platform:
+                            update_timestamp = datetime.strftime(update_datetime, '%-I:%M %p')
+                        elif "win32" in platform:
+                            update_timestamp = datetime.strftime(update_datetime, '%#I:%M %p')
+                        else:
+                            logger.warning("Unknown OS! Please create a issue on GitHub.")
+                            continue
+                        updates.append(f"{update_timestamp} - {i['updates'][i2]['text']}")
+                    try:
+                        color = color_table.get(cata_table.get(i['categories'][0]))
+                        if color == None:
+                            logger.warning(f"Catagory [{i['categories'][0]}] not found in table! Please create a issue on Github.")
+                            color = color_table.get("white")
+                    except:
+                        logger.debug("Incident has no catagory.")
+                        color = color_table.get("white")
                     activityReports.append({
                         "name": i['title'],
                         "latitude": i['latitude'],
@@ -98,6 +105,7 @@ class MySerializer(pytak.QueueWorker):
                         "color": color
                     })
             for i in activityReports:
+                logger.debug(f"Creating a CoT Event with these parameters: {(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], i['color'], poll_interval)}")
                 item = tak_activityReport(i['latitude'], i['longitude'], i['uuid'], i['name'], i['updates'], i['color'], poll_interval)
                 await self.handle_data(item)
                 await asyncio.sleep(0.1)
@@ -109,7 +117,7 @@ def tak_activityReport(lat, lon, uuid, name, updates, icon_color, poll_interval)
     event_uuid = uuid
     root = ET.Element("event")
     root.set("version", "2.0")
-    root.set("type", "b-m-p-s-m")
+    root.set("type", "a-u-G")
     root.set("uid", event_uuid)
     root.set("how", "h-g-i-g-o")
     root.set("time", pytak.cot_time())
@@ -133,7 +141,7 @@ def tak_activityReport(lat, lon, uuid, name, updates, icon_color, poll_interval)
     color = ET.SubElement(detail, 'color')
     color.set('argb', icon_color)
     usericon = ET.SubElement(detail, 'usericon')
-    usericon.set('iconsetpath',f'COT_MAPPING_SPOTMAP/b-m-p-s-m/{icon_color}')
+    usericon.set('iconsetpath','ad78aafb-83a6-4c07-b2b9-a897a8b6a38f/Pointers/track-none.png')
     return ET.tostring(root)
 
 async def main():
