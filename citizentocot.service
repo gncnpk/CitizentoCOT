@@ -1,0 +1,11 @@
+[Unit]
+Description=CitizenToCOT Service
+After=multi-user.target
+[Service]
+User=root
+WorkingDirectory=/home/pi/CitizentoCoT
+ExecStart=/home/pi/CitizentoCoT/run.sh
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
